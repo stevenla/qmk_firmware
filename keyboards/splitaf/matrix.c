@@ -25,6 +25,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "util.h"
 #include "matrix.h"
 #include "timer.h"
+#include "i2c_master.h"
 
 #ifndef DEBOUNCING_DELAY
   #define DEBOUNCING_DELAY 5
@@ -81,16 +82,90 @@ uint8_t matrix_cols(void) {
   return MATRIX_COLS;
 }
 
+// ----------------------------------------
+// TWI stuff start
+// ----------------------------------------
+
+
+// register addresses (see "mcp23018.md")
+#define IODIRA 0x00  // i/o direction register
+#define IODIRB 0x01
+#define GPPUA  0x0C  // GPIO pull-up resistor register
+#define GPPUB  0x0D
+#define GPIOA  0x12  // general purpose i/o port register (write modifies OLAT)
+#define GPIOB  0x13
+#define OLATA  0x14  // output latch register
+#define OLATB  0x15
+
+// TWI aliases
+#define TWI_ADDRESS 0b0100000
+#define TWI_ADDR_WRITE ( (TWI_ADDRESS<<1) | I2C_WRITE )
+#define TWI_ADDR_READ  ( (TWI_ADDRESS<<1) | I2C_READ  )
+
+void init_slave(void) {
+  dprintln("init_slave: start");
+  i2c_init();
+  dprintln("init_slave: init");
+
+  // set pin direction
+  // - unused  : input  : 1
+  // - input   : input  : 1
+  // - driving : output : 0
+  i2c_start(TWI_ADDR_WRITE);
+  dprintln("init_slave: dir start");
+  i2c_write(IODIRA); // set pointer
+  dprintln("init_slave: dir set ptr");
+  i2c_write(0b11111111);  // IODIRA
+  dprintln("init_slave: dir write first byte");
+  //          I__OOOOO
+  i2c_write(0b11100000);  // IODIRB
+  dprintln("init_slave: dir write second byte");
+  i2c_stop();
+  dprintln("init_slave: dir stop");
+
+	// set pull-up
+	// - unused  : on  : 1
+	// - input   : on  : 1
+	// - driving : off : 0
+  i2c_start(TWI_ADDR_WRITE);
+  i2c_write(GPPUA);  // set pointer
+  i2c_write(0b11111111);  // GPPUA
+  i2c_write(0b11100000);  // GPPUB
+  i2c_stop();
+
+  // set logical value (doesn't matter on inputs)
+  // - unused  : hi-Z : 1
+  // - input   : hi-Z : 1
+  // - driving : hi-Z : 1
+  i2c_start(TWI_ADDR_WRITE);
+  i2c_write(OLATA);  // set pointer
+  i2c_write(0b11111111);  // OLATA
+  i2c_write(0b11111111);  // OLATB
+  i2c_stop();
+}
+
+
+// ----------------------------------------
+// TWI stuff end
+// ----------------------------------------
+
 void matrix_init(void) {
+  debug_enable = true;
+  wait_us(1000000);
+  dprintln("matrix_init: start");
   // initialize row and col
   unselect_rows();
+  dprintln("matrix_init: unselect_rows");
   init_cols();
+  dprintln("matrix_init: cols");
+  init_slave();
+  dprintln("matrix_init: slave");
 
   // initialize matrix state: all keys off
   for (uint8_t i=0; i < MATRIX_ROWS; i++) {
     matrix[i] = 0;
   }
-  print("init debounce done");
+  dprintln("matrix_init: done");
 
   matrix_init_quantum();
 }
@@ -164,9 +239,9 @@ uint8_t matrix_key_count(void)
  *
  * SLAVE:
  *   row: 0   1   2   3   4
- *   pin:
+ *   pin: B0  B1  B2  B3  B4
  *   col: 7   8   9   10  11  12  13  14  15
- *   pin:
+ *   pin: A0  A1  A2  A3  A4  A5  A6  A7  B7
  *
  * ---------------------------------------- */
 
@@ -191,9 +266,17 @@ static matrix_row_t read_cols(uint8_t row)
     (PINF&(1<<6) ? 0 : (1<<2)) |
     (PINF&(1<<7) ? 0 : (1<<3))
   );
-  return master_row;
 
   // SLAVE
+  // uint8_t data;
+  // i2c_start(TWI_ADDR_WRITE);
+  // i2c_write(GPIOA);
+  // i2c_start(TWI_ADDR_READ);
+  // data = i2c_read_nack();
+  // i2c_stop();
+  //
+  // return master_row | data << 7;
+  return master_row;
 }
 
 /**
@@ -212,6 +295,11 @@ static void unselect_rows(void)
   PORTC &= 0b11101111;
 
   // SLAVE
+  // set all rows hi-Z : 1
+  // i2c_start(TWI_ADDR_WRITE);
+  // i2c_write(GPIOB);
+  // i2c_write(0xFF);
+  // i2c_stop();
 }
 
 /**
@@ -244,4 +332,10 @@ static void select_row(uint8_t row)
   }
 
   // SLAVE
+  // set active row low  : 0
+  // set other rows hi-Z : 1
+  // i2c_start(TWI_ADDR_WRITE);
+  // i2c_write(GPIOB);
+  // i2c_write(0xFF & ~(1 << row));
+  // i2c_stop();
 }

@@ -1,5 +1,5 @@
 # Source files
-SRC = matrix.c i2c_master.c
+SRC = matrix.c i2c.c
 
 # MCU name
 #MCU = at90usb1287

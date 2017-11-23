@@ -26,8 +26,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "matrix.h"
 #include "timer.h"
 
-#ifndef DEBOUNCE
-#   define DEBOUNCE	5
+#ifndef DEBOUNCING_DELAY
+  #define DEBOUNCING_DELAY 5
 #endif
 
 #define print_matrix_header()  print("\nr/c 0123456789ABCDEF\n")
@@ -37,11 +37,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 /* matrix state(1:on, 0:off) */
 static matrix_row_t matrix[MATRIX_ROWS];
-
-// Debouncing: store for each key the number of scans until it's eligible to
-// change.  When scanning the matrix, ignore any changes in keys that have
-// already changed in the last DEBOUNCE scans.
-static uint8_t debounce_matrix[MATRIX_ROWS * MATRIX_COLS];
 
 static void init_cols(void);
 static matrix_row_t read_cols(uint8_t row);
@@ -94,48 +89,19 @@ void matrix_init(void) {
   // initialize matrix state: all keys off
   for (uint8_t i=0; i < MATRIX_ROWS; i++) {
     matrix[i] = 0;
-    for (uint8_t j=0; i < MATRIX_COLS; j++) {
-      debounce_matrix[i * MATRIX_COLS + j] = 0;
-    }
   }
+  print("init debounce done");
 
   matrix_init_quantum();
 }
-
-
-// Returns a matrix_row_t whose bits are set if the corresponding key should be
-// eligible to change in this scan.
-matrix_row_t debounce_mask(uint8_t row) {
-  matrix_row_t result = 0;
-  for (uint8_t j=0; j < MATRIX_COLS; ++j) {
-    if (debounce_matrix[row * MATRIX_COLS + j]) {
-      --debounce_matrix[row * MATRIX_COLS + j];
-    } else {
-      result |= (1 << j);
-    }
-  }
-  return result;
-}
-
-// Report changed keys in the given row.  Resets the debounce countdowns
-// corresponding to each set bit in 'change' to DEBOUNCE.
-void debounce_report(matrix_row_t change, uint8_t row) {
-  for (uint8_t i = 0; i < MATRIX_COLS; ++i) {
-    if (change & (1 << i)) {
-      debounce_matrix[row * MATRIX_COLS + i] = DEBOUNCE;
-    }
-  }
-}
-
 
 uint8_t matrix_scan(void)
 {
   for (uint8_t i = 0; i < MATRIX_ROWS; i++) {
     select_row(i);
     wait_us(30);  // wait for a stable read value
-    matrix_row_t mask = debounce_mask(i);
-    matrix_row_t cols = (read_cols(i) & mask) | (matrix[i] & ~mask);
-    debounce_report(cols ^ matrix[i], i);
+    // TODO: debouncing
+    matrix_row_t cols = read_cols(i);
     matrix[i] = cols;
     unselect_rows();
   }

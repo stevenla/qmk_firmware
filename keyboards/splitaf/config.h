@@ -23,7 +23,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 /* USB Device descriptor parameter */
 #define VENDOR_ID       0xFEED
 #define PRODUCT_ID      0x0007
-#define DEVICE_VER 		0x0001
+#define DEVICE_VER      0x0001
 #define MANUFACTURER    SLA
 #define PRODUCT         Split AF
 #define DESCRIPTION     SLA Split AF // Charleston, SC Meetup Handout
@@ -31,22 +31,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 /* key matrix size */
 #define MATRIX_ROWS 5
 #define MATRIX_COLS 16
-
-/* 9Key PCB default pin-out */
-// #define ROW0_MASTER B5
-// #define ROW1_MASTER B4
-// #define MATRIX_ROW_PINS
-// #define MATRIX_COL_PINS
-
-/* ws2812 RGB LED */
-// #define RGB_DI_PIN
-// #define RGBLIGHT_TIMER
-// #define RGBLED_NUM 1    // Number of LEDs
-// #define ws2812_PORTREG  PORTD
-// #define ws2812_DDRREG   DDRD
-
-/* COL2ROW or ROW2COL */
-#define DIODE_DIRECTION COL2ROW
 
 #define TAPPING_TERM 200
 

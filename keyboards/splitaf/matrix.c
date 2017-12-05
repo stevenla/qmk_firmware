@@ -36,6 +36,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #define matrix_bitpop(i)     bitpop16(matrix[i])
 #define ROW_SHIFTER ((uint16_t)1)
 
+#define i2c(status, debug) do { dprint(debug); if (status > 0) { dprint(" FAILED\n"); return; } else { dprint("\n"); } } while (0)
+
 /* matrix state(1:on, 0:off) */
 static matrix_row_t matrix[MATRIX_ROWS];
 
@@ -111,18 +113,15 @@ void init_remote(void) {
   // - unused  : input  : 1
   // - input   : input  : 1
   // - driving : output : 0
-  if(i2c_master_start(TWI_ADDR_WRITE) > 0) {
-    dprintln("init_remote: dir start FAILED");
-    return;
-  }
-  dprintln("init_remote: dir start");
-  i2c_master_write(IODIRA); // set pointer
-  dprintln("init_remote: dir set ptr");
-  i2c_master_write(0b11111111);  // IODIRA
-  dprintln("init_remote: dir write first byte");
-  //                 I__OOOOO
-  i2c_master_write(0b11100000);  // IODIRB
-  dprintln("init_remote: dir write second byte");
+  // if(i2c_master_start(TWI_ADDR_WRITE) > 0) {
+  //   dprintln("init_remote: dir start FAILED");
+  //   return;
+  // }
+  i2c(i2c_master_start(TWI_ADDR_WRITE), "init_remote: dir start");
+  i2c(i2c_master_write(IODIRA), "init_remote: dir set ptr"); // set pointer
+  i2c(i2c_master_write(0b11111111), "init_remote: dir write first byte");  // IODIRA
+  //                     I__OOOOO
+  i2c(i2c_master_write(0b11100000), "init_remote: dir write second byte");  // IODIRB
   i2c_master_stop();
   dprintln("init_remote: dir stop");
 
@@ -130,21 +129,23 @@ void init_remote(void) {
 	// - unused  : on  : 1
 	// - input   : on  : 1
 	// - driving : off : 0
-  i2c_master_start(TWI_ADDR_WRITE);
-  i2c_master_write(GPPUA);  // set pointer
-  i2c_master_write(0b11111111);  // GPPUA
-  i2c_master_write(0b11100000);  // GPPUB
+  i2c(i2c_master_start(TWI_ADDR_WRITE), "init_remote: pu start");
+  i2c(i2c_master_write(GPPUA), "init_remote: pu set ptr");  // set pointer
+  i2c(i2c_master_write(0b11111111), "init_remote: pu write first byte");  // GPPUA
+  i2c(i2c_master_write(0b11100000), "init_remote: pu write second byte");  // GPPUB
   i2c_master_stop();
+  dprintln("init_remote: pu stop");
 
   // set logical value (doesn't matter on inputs)
   // - unused  : hi-Z : 1
   // - input   : hi-Z : 1
   // - driving : hi-Z : 1
-  i2c_master_start(TWI_ADDR_WRITE);
-  i2c_master_write(OLATA);  // set pointer
-  i2c_master_write(0b11111111);  // OLATA
-  i2c_master_write(0b11111111);  // OLATB
+  i2c(i2c_master_start(TWI_ADDR_WRITE), "init_remote: val start");
+  i2c(i2c_master_write(OLATA), "init_remote: val set ptr");  // set pointer
+  i2c(i2c_master_write(0b11111111), "init_remote: val write first byte");  // OLATA
+  i2c(i2c_master_write(0b11111111), "init_remote: val write second byte");  // OLATB
   i2c_master_stop();
+  dprintln("init_remote: val stop");
 }
 
 
@@ -159,12 +160,12 @@ void matrix_init(void) {
   }
   dprintln("matrix_init: start");
   // initialize row and col
+  init_remote();
+  dprintln("matrix_init: slave");
   unselect_rows();
   dprintln("matrix_init: unselect_rows");
   init_cols();
   dprintln("matrix_init: cols");
-  init_remote();
-  dprintln("matrix_init: slave");
 
   // initialize matrix state: all keys off
   for (uint8_t i=0; i < MATRIX_ROWS; i++) {
@@ -273,15 +274,30 @@ static matrix_row_t read_cols(uint8_t row)
   );
 
   // SLAVE
-  // uint8_t data;
-  // i2c_master_start(TWI_ADDR_WRITE);
-  // i2c_master_write(GPIOA);
-  // i2c_master_start(TWI_ADDR_READ);
-  // data = i2c_read_nack();
-  // i2c_master_stop();
-  //
-  // return master_row | data << 7;
-  return master_row;
+  i2c_master_start(TWI_ADDR_WRITE);
+  i2c_master_write(GPIOA);
+  i2c_master_start(TWI_ADDR_READ);
+  uint8_t dataA = i2c_master_read(1);
+  uint8_t dataB = i2c_master_read(1);
+  i2c_master_stop();
+  matrix_row_t slave_row = (
+    (~dataA & 0b11111111) |
+    ((~dataB & 0b10000000) << 1)
+  );
+
+  matrix_row_t both_rows = (slave_row << 7 | master_row);
+  return both_rows;
+
+  // print_bin8(~dataA);
+  // print("\n");
+  // print_bin16(dataA);
+  // print("\n");
+  // print_bin16(master_row | (keysDownA << 7) | (keysDownB << 15));
+  // print_bin16(both_rows);
+  // print("\n");
+  // return master_row | ((~dataA) << 7);
+  // return master_row;
+  // return master_row | (keysDownA << 7) | (keysDownB << 15);
 }
 
 /**
@@ -301,10 +317,11 @@ static void unselect_rows(void)
 
   // SLAVE
   // set all rows hi-Z : 1
-  // i2c_master_start(TWI_ADDR_WRITE);
-  // i2c_master_write(GPIOB);
-  // i2c_master_write(0xFF);
-  // i2c_master_stop();
+  i2c(i2c_master_start(TWI_ADDR_WRITE), "unselect_rows: start");
+  i2c(i2c_master_write(GPIOB), "unselect_rows: set ptr");
+  i2c(i2c_master_write(0xFF), "unselect_rows: write");
+  i2c_master_stop();
+  dprintln("unselect_rows: stop");
 }
 
 /**
@@ -339,8 +356,8 @@ static void select_row(uint8_t row)
   // SLAVE
   // set active row low  : 0
   // set other rows hi-Z : 1
-  // i2c_master_start(TWI_ADDR_WRITE);
-  // i2c_master_write(GPIOB);
-  // i2c_master_write(0xFF & ~(1 << row));
-  // i2c_master_stop();
+  i2c(i2c_master_start(TWI_ADDR_WRITE), "select_row: start");
+  i2c(i2c_master_write(GPIOB), "select_row: set ptr");
+  i2c(i2c_master_write(0xFF & ~(1 << row)), "select_row: write row");
+  i2c_master_stop();
 }

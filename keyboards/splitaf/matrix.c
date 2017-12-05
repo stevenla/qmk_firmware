@@ -154,7 +154,9 @@ void init_remote(void) {
 
 void matrix_init(void) {
   debug_enable = true;
-  wait_us(1000000);
+  if (debug_enable) {
+    wait_us(1000000);
+  }
   dprintln("matrix_init: start");
   // initialize row and col
   unselect_rows();

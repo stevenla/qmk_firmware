@@ -115,18 +115,10 @@ status_t init_remote(void) {
 }
 
 void matrix_init(void) {
-  debug_enable = true;
-  if (debug_enable) {
-    wait_us(1000000);
-  }
-  dprintln("matrix_init: start");
   // initialize row and col
   init_master(&split, &init_remote);
-  dprintln("matrix_init: slave");
   unselect_rows();
-  dprintln("matrix_init: unselect_rows");
   init_cols();
-  dprintln("matrix_init: cols");
 
   // initialize matrix state: all keys off
   for (uint8_t i=0; i < MATRIX_ROWS; i++) {
@@ -221,7 +213,7 @@ static void init_cols(void)
    DDRF &= 0b00001111;
   PORTF |= 0b11110000;
 
-  // SLAVE
+  // SLAVE set in init_remote()
 }
 
 static matrix_row_t read_cols(uint8_t row)

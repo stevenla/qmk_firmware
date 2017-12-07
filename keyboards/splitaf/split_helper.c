@@ -43,6 +43,9 @@ status_t _init(Split* split) {
     return 0;
   }
 
+  i2c_master_stop();
+  i2c_master_init();
+  
   init_func_t init_func = (*split).init_func;
   status_t status = (*init_func)();
   if (status == 0) {

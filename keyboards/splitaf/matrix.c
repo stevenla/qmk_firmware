@@ -88,8 +88,6 @@ uint8_t matrix_cols(void) {
 }
 
 status_t init_remote(void) {
-  i2c_master_stop();
-  i2c_master_init();
 
   if (
     // set pin direction

@@ -16,6 +16,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 #include <stdint.h>
 #include <stdbool.h>
+#include <stdio.h>
 #if defined(__AVR__)
 #include <avr/io.h>
 #endif
@@ -87,6 +88,7 @@ uint8_t matrix_cols(void) {
 }
 
 status_t init_remote(void) {
+  i2c_master_stop();
   i2c_master_init();
 
   if (
@@ -94,13 +96,13 @@ status_t init_remote(void) {
     // - unused  : input  : 1
     // - input   : input  : 1
     // - driving : output : 0
-    raw_write_word(IODIRA, 0b11111111, 0b11100000) |
+    raw_write_word(IODIRA, 0b11111111, 0b11100000) ||
 
   	// set pull-up
   	// - unused  : on  : 1
   	// - input   : on  : 1
   	// - driving : off : 0
-    raw_write_word(GPPUA, 0b11111111, 0b11100000) |
+    raw_write_word(GPPUA, 0b11111111, 0b11100000) ||
 
     // set logical value (doesn't matter on inputs)
     // - unused  : hi-Z : 1

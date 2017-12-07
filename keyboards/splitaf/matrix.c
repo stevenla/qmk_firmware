@@ -87,23 +87,29 @@ uint8_t matrix_cols(void) {
 }
 
 status_t init_remote(void) {
-  // set pin direction
-  // - unused  : input  : 1
-  // - input   : input  : 1
-  // - driving : output : 0
-  return_if_status(raw_write_word(IODIRA, 0b11111111, 0b11100000));
+  i2c_master_init();
 
-	// set pull-up
-	// - unused  : on  : 1
-	// - input   : on  : 1
-	// - driving : off : 0
-  return_if_status(raw_write_word(GPPUA, 0b11111111, 0b11100000));
+  if (
+    // set pin direction
+    // - unused  : input  : 1
+    // - input   : input  : 1
+    // - driving : output : 0
+    raw_write_word(IODIRA, 0b11111111, 0b11100000) |
 
-  // set logical value (doesn't matter on inputs)
-  // - unused  : hi-Z : 1
-  // - input   : hi-Z : 1
-  // - driving : hi-Z : 1
-  return_if_status(raw_write_word(OLATA, 0b11111111, 0b11111111));
+  	// set pull-up
+  	// - unused  : on  : 1
+  	// - input   : on  : 1
+  	// - driving : off : 0
+    raw_write_word(GPPUA, 0b11111111, 0b11100000) |
+
+    // set logical value (doesn't matter on inputs)
+    // - unused  : hi-Z : 1
+    // - input   : hi-Z : 1
+    // - driving : hi-Z : 1
+    raw_write_word(OLATA, 0b11111111, 0b11111111)
+  ) {
+    return 1;
+  }
 
   return 0;
 }
